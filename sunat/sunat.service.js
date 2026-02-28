@@ -3,9 +3,15 @@ import axios from 'axios';
 import db from '../config/db.js';
 
 class SunatService {
-    constructor() {
-        this.phpServiceUrl = 'http://localhost:8000/src/endpoints/emitir_fake.php';
-    }
+   // backend_dsi6/sunat/sunat.service.js - MODIFICAR CONSTRUCTOR
+constructor() {
+    // Usar variable de entorno o fallback local
+    this.phpServiceUrl = process.env.SUNAT_PHP_URL 
+        ? `${process.env.SUNAT_PHP_URL}/src/endpoints/emitir_fake.php`
+        : 'http://localhost:8000/src/endpoints/emitir_fake.php';
+    
+    console.log('📡 PHP Service URL:', this.phpServiceUrl);
+}
 
     async emitirComprobante(idVenta) {
         const connection = await db.getConnection();
