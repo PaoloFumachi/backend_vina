@@ -24,6 +24,7 @@ class SunatController {
         }
     }
 // backend_dsi6/controllers/sunat.controller.js
+// backend_dsi6/controllers/sunat.controller.js
 async listarComprobantes(req, res) {
     try {
         const { 
@@ -31,10 +32,7 @@ async listarComprobantes(req, res) {
             pagina = 1, limite = 10, search
         } = req.query;
         
-        // IMPORTANTE: Hacer dos consultas separadas
-        // 1. Primero obtener los IDs de los comprobantes que cumplen los filtros
-        // 2. Luego contar SOLO esos registros
-        
+        // 1. Consulta para obtener IDs con filtros
         let idsQuery = `
             SELECT cs.id_comprobante
             FROM comprobante_sunat cs
@@ -69,17 +67,19 @@ async listarComprobantes(req, res) {
             params.push(searchTerm, searchTerm, searchTerm, searchTerm);
         }
         
-        // Contar total de IDs filtrados
+        // 2. Contar total (usando COPIA de params)
+        const countParams = [...params];
         const countQuery = `SELECT COUNT(*) as total FROM (${idsQuery}) as filtered_ids`;
-        const [countResult] = await db.execute(countQuery, params);
+        const [countResult] = await db.execute(countQuery, countParams);
         const total = countResult[0]?.total || 0;
         
-        // Aplicar paginación a la consulta de IDs
+        // 3. Aplicar paginación a la consulta de IDs (usando COPIA de params)
+        const paginationParams = [...params];
         const offset = (parseInt(pagina) - 1) * parseInt(limite);
-        idsQuery += ' ORDER BY cs.fecha_envio DESC LIMIT ? OFFSET ?';
-        params.push(parseInt(limite), offset);
+        const idsQueryWithPagination = idsQuery + ' ORDER BY cs.fecha_envio DESC LIMIT ? OFFSET ?';
+        paginationParams.push(parseInt(limite), offset);
         
-        const [idsRows] = await db.execute(idsQuery, params);
+        const [idsRows] = await db.execute(idsQueryWithPagination, paginationParams);
         const ids = idsRows.map(row => row.id_comprobante);
         
         // Si no hay IDs, devolver array vacío
@@ -93,7 +93,7 @@ async listarComprobantes(req, res) {
             });
         }
         
-        // Ahora obtener los datos completos de esos IDs específicos
+        // 4. Obtener datos completos de esos IDs (con NUEVOS parámetros)
         const dataQuery = `
             SELECT 
                 cs.*, 
@@ -120,7 +120,7 @@ async listarComprobantes(req, res) {
             ORDER BY cs.fecha_envio DESC
         `;
         
-        const [comprobantes] = await db.execute(dataQuery, ids);
+        const [comprobantes] = await db.execute(dataQuery, ids); // ← Solo los IDs como parámetros
         
         // Procesar comprobantes
         const comprobantesProcesados = comprobantes.map(comp => ({
@@ -142,6 +142,8 @@ async listarComprobantes(req, res) {
         
     } catch (error) {
         console.error('❌ Error en listarComprobantes:', error);
+        console.error('📝 SQL:', error.sql); // Para ver la consulta exacta
+        console.error('📊 Parámetros:', error.sqlMessage); // Para ver los parámetros
         res.status(500).json({ 
             success: false,
             error: error.message 
