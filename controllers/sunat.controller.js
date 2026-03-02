@@ -25,12 +25,15 @@ class SunatController {
     }
 
 // backend_dsi6/controllers/sunat.controller.js
+// backend_dsi6/controllers/sunat.controller.js
 async listarComprobantes(req, res) {
     try {
         const { 
             tipo, estado, fecha_desde, fecha_hasta, 
             pagina = 1, limite = 10, search
         } = req.query;
+        
+        console.log('🔍 Parámetros recibidos:', { tipo, estado, fecha_desde, fecha_hasta, pagina, limite, search });
         
         // 1. Consulta base para obtener IDs
         let idsQuery = `
@@ -67,20 +70,39 @@ async listarComprobantes(req, res) {
             params.push(searchTerm, searchTerm, searchTerm, searchTerm);
         }
         
+        console.log('📝 Consulta IDs (sin paginación):', idsQuery);
+        console.log('📊 Parámetros filtros:', params);
+        
         // 2. Contar total (usando COPIA de params)
         const countParams = [...params];
         const countQuery = `SELECT COUNT(*) as total FROM (${idsQuery}) as filtered_ids`;
+        console.log('📝 Consulta COUNT:', countQuery);
+        console.log('📊 Parámetros COUNT:', countParams);
+        
         const [countResult] = await db.execute(countQuery, countParams);
         const total = countResult[0]?.total || 0;
+        console.log('✅ Total registros:', total);
         
-        // 3. Aplicar paginación (usando COPIA de params)
+        // 3. Aplicar paginación (NUEVA COPIA de params)
         const paginationParams = [...params];
         const offset = (parseInt(pagina) - 1) * parseInt(limite);
+        
+        // IMPORTANTE: Crear la consulta con ORDER BY antes de LIMIT/OFFSET
         const idsQueryWithPagination = idsQuery + ' ORDER BY cs.fecha_envio DESC LIMIT ? OFFSET ?';
-        paginationParams.push(parseInt(limite), offset);
+        
+        console.log('📝 Consulta IDs con paginación:', idsQueryWithPagination);
+        console.log('📊 Parámetros antes de push:', paginationParams);
+        
+        paginationParams.push(parseInt(limite), parseInt(offset));
+        
+        console.log('📊 Parámetros después de push (LIMIT, OFFSET):', paginationParams);
+        console.log('🔢 Número de placeholders:', (idsQueryWithPagination.match(/\?/g) || []).length);
+        console.log('🔢 Número de parámetros:', paginationParams.length);
         
         const [idsRows] = await db.execute(idsQueryWithPagination, paginationParams);
         const ids = idsRows.map(row => row.id_comprobante);
+        
+        console.log('✅ IDs encontrados:', ids);
         
         // Si no hay IDs, devolver array vacío
         if (ids.length === 0) {
@@ -119,6 +141,9 @@ async listarComprobantes(req, res) {
             WHERE cs.id_comprobante IN (${ids.map(() => '?').join(',')})
             ORDER BY cs.fecha_envio DESC
         `;
+        
+        console.log('📝 Consulta datos:', dataQuery);
+        console.log('📊 Parámetros datos:', ids);
         
         const [comprobantes] = await db.execute(dataQuery, ids);
         
