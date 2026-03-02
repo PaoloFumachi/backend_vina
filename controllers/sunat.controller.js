@@ -23,7 +23,7 @@ class SunatController {
             });
         }
     }
-// backend_dsi6/controllers/sunat.controller.js
+
 // backend_dsi6/controllers/sunat.controller.js
 async listarComprobantes(req, res) {
     try {
@@ -32,7 +32,7 @@ async listarComprobantes(req, res) {
             pagina = 1, limite = 10, search
         } = req.query;
         
-        // 1. Consulta para obtener IDs con filtros
+        // 1. Consulta base para obtener IDs
         let idsQuery = `
             SELECT cs.id_comprobante
             FROM comprobante_sunat cs
@@ -73,7 +73,7 @@ async listarComprobantes(req, res) {
         const [countResult] = await db.execute(countQuery, countParams);
         const total = countResult[0]?.total || 0;
         
-        // 3. Aplicar paginación a la consulta de IDs (usando COPIA de params)
+        // 3. Aplicar paginación (usando COPIA de params)
         const paginationParams = [...params];
         const offset = (parseInt(pagina) - 1) * parseInt(limite);
         const idsQueryWithPagination = idsQuery + ' ORDER BY cs.fecha_envio DESC LIMIT ? OFFSET ?';
@@ -93,7 +93,7 @@ async listarComprobantes(req, res) {
             });
         }
         
-        // 4. Obtener datos completos de esos IDs (con NUEVOS parámetros)
+        // 4. Obtener datos completos de esos IDs
         const dataQuery = `
             SELECT 
                 cs.*, 
@@ -120,7 +120,7 @@ async listarComprobantes(req, res) {
             ORDER BY cs.fecha_envio DESC
         `;
         
-        const [comprobantes] = await db.execute(dataQuery, ids); // ← Solo los IDs como parámetros
+        const [comprobantes] = await db.execute(dataQuery, ids);
         
         // Procesar comprobantes
         const comprobantesProcesados = comprobantes.map(comp => ({
@@ -142,8 +142,8 @@ async listarComprobantes(req, res) {
         
     } catch (error) {
         console.error('❌ Error en listarComprobantes:', error);
-        console.error('📝 SQL:', error.sql); // Para ver la consulta exacta
-        console.error('📊 Parámetros:', error.sqlMessage); // Para ver los parámetros
+        console.error('📝 SQL:', error.sql);
+        console.error('📊 Parámetros:', error.sqlMessage);
         res.status(500).json({ 
             success: false,
             error: error.message 
