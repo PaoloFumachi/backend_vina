@@ -29,24 +29,14 @@ class SunatController {
 // backend_dsi6/controllers/sunat.controller.js
 async listarComprobantes(req, res) {
     try {
-        console.log('🔍 Iniciando listarComprobantes - VERSIÓN DE PRUEBA');
+        console.log('🔍 Iniciando listarComprobantes - VERSIÓN CON NAMED PARAMETERS');
         
         const { pagina = 1, limite = 10 } = req.query;
         const pageNum = parseInt(pagina) || 1;
         const limitNum = parseInt(limite) || 10;
         const offsetNum = (pageNum - 1) * limitNum;
         
-        console.log(`📊 Paginación: página ${pageNum}, límite ${limitNum}, offset ${offsetNum}`);
-        
-        // 1. Consulta COUNT simplificada
-        const countQuery = `SELECT COUNT(*) as total FROM comprobante_sunat`;
-        console.log('📝 COUNT Query:', countQuery);
-        
-        const [countResult] = await db.execute(countQuery);
-        const total = countResult[0]?.total || 0;
-        console.log('✅ Total registros:', total);
-        
-        // 2. Consulta DATA simplificada
+        // Consulta con placeholders
         const dataQuery = `
             SELECT 
                 cs.*, 
@@ -57,47 +47,25 @@ async listarComprobantes(req, res) {
         `;
         
         console.log('📝 DATA Query:', dataQuery);
-        console.log('📊 Parámetros:', [limitNum, offsetNum]);
+        console.log('📊 Parámetros (limit, offset):', limitNum, offsetNum);
         
-        const [comprobantes] = await db.execute(dataQuery, [limitNum, offsetNum]);
+        // Pasar parámetros como argumentos separados
+        const [comprobantes] = await db.query(dataQuery, [limitNum, offsetNum]);
         
         console.log(`✅ Registros encontrados: ${comprobantes.length}`);
         
-        // Procesar resultados mínimos
-        const comprobantesProcesados = comprobantes.map(comp => ({
-            id_comprobante: comp.id_comprobante,
-            id_venta: comp.id_venta,
-            tipo: comp.tipo,
-            serie: comp.serie,
-            numero_secuencial: comp.numero_secuencial,
-            estado: comp.estado,
-            total: comp.total,
-            cliente_nombre: comp.cliente_nombre || 'Sin cliente',
-            fecha_envio: comp.fecha_envio,
-            serie_numero: comp.serie_numero,
-            cliente_ruc: comp.ruc_cliente,
-            cliente_dni: comp.dni_cliente
-        }));
-        
         res.json({ 
             success: true, 
-            total, 
+            total: 0,
             pagina: pageNum,
             limite: limitNum,
-            comprobantes: comprobantesProcesados
+            comprobantes: []
         });
         
     } catch (error) {
-        console.error('❌ Error en listarComprobantes:', error);
+        console.error('❌ Error:', error);
         console.error('📝 SQL:', error.sql);
-        console.error('📊 Parámetros:', error.sqlMessage);
-        console.error('🔧 Stack:', error.stack);
-        
-        res.status(500).json({ 
-            success: false,
-            error: error.message,
-            details: error.sqlMessage
-        });
+        res.status(500).json({ success: false, error: error.message });
     }
 }
     async obtenerXml(req, res) {
