@@ -24,7 +24,7 @@ class SunatController {
         }
     }
 
-// backend_dsi6/controllers/sunat.controller.js
+
 // backend_dsi6/controllers/sunat.controller.js
 async listarComprobantes(req, res) {
     try {
@@ -35,9 +35,14 @@ async listarComprobantes(req, res) {
         
         console.log('🔍 Parámetros recibidos:', { tipo, estado, fecha_desde, fecha_hasta, pagina, limite, search });
         
-        // 1. Consulta base para obtener IDs
-        let idsQuery = `
-            SELECT cs.id_comprobante
+        // Convertir a números enteros
+        const pageNum = parseInt(pagina) || 1;
+        const limitNum = parseInt(limite) || 10;
+        const offsetNum = (pageNum - 1) * limitNum;
+        
+        // 1. Primero, obtener el total de registros (consulta simple)
+        let countQuery = `
+            SELECT COUNT(*) as total
             FROM comprobante_sunat cs
             JOIN venta v ON cs.id_venta = v.id_venta
             LEFT JOIN cliente c ON v.id_cliente = c.id_cliente
@@ -45,78 +50,40 @@ async listarComprobantes(req, res) {
             WHERE 1=1
         `;
         
-        const params = [];
+        const countParams = [];
         
-        // Aplicar filtros
+        // Aplicar filtros al COUNT
         if (tipo) { 
-            idsQuery += ' AND cs.tipo = ?'; 
-            params.push(tipo); 
+            countQuery += ' AND cs.tipo = ?'; 
+            countParams.push(tipo); 
         }
         if (estado) { 
-            idsQuery += ' AND cs.estado = ?'; 
-            params.push(estado); 
+            countQuery += ' AND cs.estado = ?'; 
+            countParams.push(estado); 
         }
         if (fecha_desde) { 
-            idsQuery += ' AND DATE(cs.fecha_envio) >= ?'; 
-            params.push(fecha_desde); 
+            countQuery += ' AND DATE(cs.fecha_envio) >= ?'; 
+            countParams.push(fecha_desde); 
         }
         if (fecha_hasta) { 
-            idsQuery += ' AND DATE(cs.fecha_envio) <= ?'; 
-            params.push(fecha_hasta); 
+            countQuery += ' AND DATE(cs.fecha_envio) <= ?'; 
+            countParams.push(fecha_hasta); 
         }
         if (search) {
-            idsQuery += ' AND (c.razon_social LIKE ? OR p.nombre_completo LIKE ? OR cs.serie LIKE ? OR cs.numero_secuencial LIKE ?)';
+            countQuery += ' AND (c.razon_social LIKE ? OR p.nombre_completo LIKE ? OR cs.serie LIKE ? OR cs.numero_secuencial LIKE ?)';
             const searchTerm = `%${search}%`;
-            params.push(searchTerm, searchTerm, searchTerm, searchTerm);
+            countParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
         }
         
-        console.log('📝 Consulta IDs (sin paginación):', idsQuery);
-        console.log('📊 Parámetros filtros:', params);
-        
-        // 2. Contar total (usando COPIA de params)
-        const countParams = [...params];
-        const countQuery = `SELECT COUNT(*) as total FROM (${idsQuery}) as filtered_ids`;
-        console.log('📝 Consulta COUNT:', countQuery);
-        console.log('📊 Parámetros COUNT:', countParams);
+        console.log('📝 COUNT Query:', countQuery);
+        console.log('📊 COUNT Params:', countParams);
         
         const [countResult] = await db.execute(countQuery, countParams);
         const total = countResult[0]?.total || 0;
         console.log('✅ Total registros:', total);
         
-        // 3. Aplicar paginación (NUEVA COPIA de params)
-        const paginationParams = [...params];
-        const offset = (parseInt(pagina) - 1) * parseInt(limite);
-        
-        // IMPORTANTE: Crear la consulta con ORDER BY antes de LIMIT/OFFSET
-        const idsQueryWithPagination = idsQuery + ' ORDER BY cs.fecha_envio DESC LIMIT ? OFFSET ?';
-        
-        console.log('📝 Consulta IDs con paginación:', idsQueryWithPagination);
-        console.log('📊 Parámetros antes de push:', paginationParams);
-        
-        paginationParams.push(parseInt(limite), parseInt(offset));
-        
-        console.log('📊 Parámetros después de push (LIMIT, OFFSET):', paginationParams);
-        console.log('🔢 Número de placeholders:', (idsQueryWithPagination.match(/\?/g) || []).length);
-        console.log('🔢 Número de parámetros:', paginationParams.length);
-        
-        const [idsRows] = await db.execute(idsQueryWithPagination, paginationParams);
-        const ids = idsRows.map(row => row.id_comprobante);
-        
-        console.log('✅ IDs encontrados:', ids);
-        
-        // Si no hay IDs, devolver array vacío
-        if (ids.length === 0) {
-            return res.json({
-                success: true,
-                total: 0,
-                pagina: parseInt(pagina),
-                limite: parseInt(limite),
-                comprobantes: []
-            });
-        }
-        
-        // 4. Obtener datos completos de esos IDs
-        const dataQuery = `
+        // 2. Consulta principal con paginación
+        let dataQuery = `
             SELECT 
                 cs.*, 
                 v.total, 
@@ -138,16 +105,46 @@ async listarComprobantes(req, res) {
             JOIN venta v ON cs.id_venta = v.id_venta
             LEFT JOIN cliente c ON v.id_cliente = c.id_cliente
             LEFT JOIN persona p ON c.id_persona = p.id_persona
-            WHERE cs.id_comprobante IN (${ids.map(() => '?').join(',')})
-            ORDER BY cs.fecha_envio DESC
+            WHERE 1=1
         `;
         
-        console.log('📝 Consulta datos:', dataQuery);
-        console.log('📊 Parámetros datos:', ids);
+        const dataParams = [];
         
-        const [comprobantes] = await db.execute(dataQuery, ids);
+        // Aplicar los mismos filtros
+        if (tipo) { 
+            dataQuery += ' AND cs.tipo = ?'; 
+            dataParams.push(tipo); 
+        }
+        if (estado) { 
+            dataQuery += ' AND cs.estado = ?'; 
+            dataParams.push(estado); 
+        }
+        if (fecha_desde) { 
+            dataQuery += ' AND DATE(cs.fecha_envio) >= ?'; 
+            dataParams.push(fecha_desde); 
+        }
+        if (fecha_hasta) { 
+            dataQuery += ' AND DATE(cs.fecha_envio) <= ?'; 
+            dataParams.push(fecha_hasta); 
+        }
+        if (search) {
+            dataQuery += ' AND (c.razon_social LIKE ? OR p.nombre_completo LIKE ? OR cs.serie LIKE ? OR cs.numero_secuencial LIKE ?)';
+            const searchTerm = `%${search}%`;
+            dataParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
+        }
         
-        // Procesar comprobantes
+        // Agregar ORDER BY, LIMIT y OFFSET
+        dataQuery += ' ORDER BY cs.fecha_envio DESC LIMIT ? OFFSET ?';
+        dataParams.push(limitNum, offsetNum);
+        
+        console.log('📝 DATA Query:', dataQuery);
+        console.log('📊 DATA Params:', dataParams);
+        console.log('🔢 Número placeholders:', (dataQuery.match(/\?/g) || []).length);
+        console.log('🔢 Número parámetros:', dataParams.length);
+        
+        const [comprobantes] = await db.execute(dataQuery, dataParams);
+        
+        // Procesar resultados
         const comprobantesProcesados = comprobantes.map(comp => ({
             ...comp,
             cliente_ruc: comp.cliente_ruc || comp.ruc_cliente || null,
@@ -155,13 +152,13 @@ async listarComprobantes(req, res) {
             igv: comp.total ? Number((comp.total * 0.18).toFixed(2)) : 0
         }));
         
-        console.log(`📊 Total real: ${total}, Registros devueltos: ${comprobantesProcesados.length}`);
+        console.log(`📊 Registros devueltos: ${comprobantesProcesados.length}`);
         
         res.json({ 
             success: true, 
             total, 
-            pagina: parseInt(pagina),
-            limite: parseInt(limite),
+            pagina: pageNum,
+            limite: limitNum,
             comprobantes: comprobantesProcesados
         });
         
@@ -171,11 +168,11 @@ async listarComprobantes(req, res) {
         console.error('📊 Parámetros:', error.sqlMessage);
         res.status(500).json({ 
             success: false,
-            error: error.message 
+            error: error.message,
+            details: error.sqlMessage
         });
     }
 }
-
     async obtenerXml(req, res) {
         try {
             const { idComprobante } = req.params;
