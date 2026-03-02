@@ -29,43 +29,26 @@ class SunatController {
 // backend_dsi6/controllers/sunat.controller.js
 async listarComprobantes(req, res) {
     try {
-        console.log('🔍 Iniciando listarComprobantes - VERSIÓN CON NAMED PARAMETERS');
-        
         const { pagina = 1, limite = 10 } = req.query;
-        const pageNum = parseInt(pagina) || 1;
-        const limitNum = parseInt(limite) || 10;
-        const offsetNum = (pageNum - 1) * limitNum;
+        const limitNum = Number(limite);
+        const offsetNum = Number((pagina - 1) * limite);
         
-        // Consulta con placeholders
         const dataQuery = `
-            SELECT 
-                cs.*, 
-                CONCAT(cs.serie, '-', LPAD(cs.numero_secuencial, 8, '0')) as serie_numero
-            FROM comprobante_sunat cs
-            ORDER BY cs.fecha_envio DESC
+            SELECT * FROM comprobante_sunat 
+            ORDER BY fecha_envio DESC 
             LIMIT ? OFFSET ?
         `;
         
-        console.log('📝 DATA Query:', dataQuery);
-        console.log('📊 Parámetros (limit, offset):', limitNum, offsetNum);
+        console.log('Ejecutando:', dataQuery, 'con', [limitNum, offsetNum]);
         
-        // Pasar parámetros como argumentos separados
-        const [comprobantes] = await db.query(dataQuery, [limitNum, offsetNum]);
+        // Asegurar que sean números
+        const [rows] = await db.execute(dataQuery, [limitNum, offsetNum]);
         
-        console.log(`✅ Registros encontrados: ${comprobantes.length}`);
-        
-        res.json({ 
-            success: true, 
-            total: 0,
-            pagina: pageNum,
-            limite: limitNum,
-            comprobantes: []
-        });
+        res.json({ success: true, data: rows });
         
     } catch (error) {
-        console.error('❌ Error:', error);
-        console.error('📝 SQL:', error.sql);
-        res.status(500).json({ success: false, error: error.message });
+        console.error('Error:', error);
+        res.status(500).json({ error: error.message });
     }
 }
     async obtenerXml(req, res) {
