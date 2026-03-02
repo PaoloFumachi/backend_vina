@@ -26,114 +26,103 @@ class SunatController {
     }
 
     async listarComprobantes(req, res) {
-        try {
-            const { 
-                tipo, estado, fecha_desde, fecha_hasta, 
-                pagina = 1, limite = 10, search
-            } = req.query;
+    try {
+        const { 
+            tipo, estado, fecha_desde, fecha_hasta, 
+            pagina = 1, limite = 10, search
+        } = req.query;
 
-            const page = parseInt(pagina);
-            const limit = parseInt(limite);
-            const offset = (page - 1) * limit;
+        const page = parseInt(pagina);
+        const limit = parseInt(limite);
+        const offset = (page - 1) * limit;
 
-            let baseQuery = `
-                FROM comprobante_sunat cs
-                JOIN venta v ON cs.id_venta = v.id_venta
-                LEFT JOIN cliente c ON v.id_cliente = c.id_cliente
-                LEFT JOIN persona p ON c.id_persona = p.id_persona
-                WHERE 1=1
-            `;
+        let baseQuery = `
+            FROM comprobante_sunat cs
+            WHERE 1=1
+        `;
 
-            const filtros = [];
-            const paramsFiltros = [];
+        const filtros = [];
+        const params = [];
 
-            if (tipo) {
-                filtros.push('AND cs.tipo = ?');
-                paramsFiltros.push(tipo);
-            }
-
-            if (estado) {
-                filtros.push('AND cs.estado = ?');
-                paramsFiltros.push(estado);
-            }
-
-            if (fecha_desde) {
-                filtros.push('AND DATE(cs.fecha_envio) >= ?');
-                paramsFiltros.push(fecha_desde);
-            }
-
-            if (fecha_hasta) {
-                filtros.push('AND DATE(cs.fecha_envio) <= ?');
-                paramsFiltros.push(fecha_hasta);
-            }
-
-            if (search) {
-                filtros.push(`AND (
-                    c.razon_social LIKE ? OR 
-                    p.nombre_completo LIKE ? OR 
-                    cs.serie LIKE ? OR 
-                    cs.numero_secuencial LIKE ?
-                )`);
-                const searchTerm = `%${search}%`;
-                paramsFiltros.push(searchTerm, searchTerm, searchTerm, searchTerm);
-            }
-
-            const whereClause = filtros.join(' ');
-
-            // ✅ 1️⃣ COUNT
-            const countQuery = `
-                SELECT COUNT(*) as total
-                ${baseQuery}
-                ${whereClause}
-            `;
-
-            const [countResult] = await db.execute(countQuery, paramsFiltros);
-            const total = countResult[0]?.total || 0;
-
-            // ✅ 2️⃣ DATA con paginación
-            const dataQuery = `
-                SELECT 
-                    cs.*, 
-                    v.total, 
-                    v.fecha,
-                    c.razon_social, 
-                    p.nombre_completo,
-                    p.numero_documento,
-                    p.tipo_documento,
-                    CONCAT(cs.serie, '-', LPAD(cs.numero_secuencial, 8, '0')) as serie_numero
-                ${baseQuery}
-                ${whereClause}
-                ORDER BY cs.fecha_envio DESC
-                LIMIT ? OFFSET ?
-            `;
-
-            const paramsData = [...paramsFiltros, limit, offset];
-
-            const [comprobantes] = await db.execute(dataQuery, paramsData);
-
-            const comprobantesProcesados = comprobantes.map(comp => ({
-                ...comp,
-                igv: comp.total ? Number((comp.total * 0.18).toFixed(2)) : 0
-            }));
-
-            console.log(`📊 Total: ${total}, Devueltos: ${comprobantesProcesados.length}`);
-
-            res.json({
-                success: true,
-                total,
-                pagina: page,
-                limite: limit,
-                comprobantes: comprobantesProcesados
-            });
-
-        } catch (error) {
-            console.error('❌ Error en listarComprobantes:', error);
-            res.status(500).json({
-                success: false,
-                error: error.message
-            });
+        if (tipo) {
+            filtros.push('AND cs.tipo = ?');
+            params.push(tipo);
         }
+
+        if (estado) {
+            filtros.push('AND cs.estado = ?');
+            params.push(estado);
+        }
+
+        if (fecha_desde) {
+            filtros.push('AND DATE(cs.fecha_envio) >= ?');
+            params.push(fecha_desde);
+        }
+
+        if (fecha_hasta) {
+            filtros.push('AND DATE(cs.fecha_envio) <= ?');
+            params.push(fecha_hasta);
+        }
+
+        if (search) {
+            filtros.push(`AND (
+                cs.cliente_nombre LIKE ? OR 
+                cs.serie LIKE ? OR 
+                cs.numero_secuencial LIKE ?
+            )`);
+            const searchTerm = `%${search}%`;
+            params.push(searchTerm, searchTerm, searchTerm);
+        }
+
+        const whereClause = filtros.join(' ');
+
+        // COUNT
+        const countQuery = `
+            SELECT COUNT(*) as total
+            ${baseQuery}
+            ${whereClause}
+        `;
+
+        const [countResult] = await db.execute(countQuery, params);
+        const total = countResult[0]?.total || 0;
+
+        // DATA
+        const dataQuery = `
+            SELECT 
+                cs.*,
+                CONCAT(cs.serie, '-', LPAD(cs.numero_secuencial, 8, '0')) as serie_numero
+            ${baseQuery}
+            ${whereClause}
+            ORDER BY cs.fecha_envio DESC
+            LIMIT ? OFFSET ?
+        `;
+
+        const [rows] = await db.execute(
+            dataQuery,
+            [...params, limit, offset]
+        );
+
+        const comprobantesProcesados = rows.map(comp => ({
+            ...comp,
+            igv: comp.total ? Number((comp.total * 0.18).toFixed(2)) : 0
+        }));
+
+        res.json({
+            success: true,
+            total,
+            pagina: page,
+            limite: limit,
+            comprobantes: comprobantesProcesados
+        });
+
+    } catch (error) {
+        console.error('❌ Error en listarComprobantes:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
     }
+}
 
     async obtenerXml(req, res) {
         try {
