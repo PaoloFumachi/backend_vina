@@ -26,7 +26,6 @@ class SunatController {
 // backend_dsi6/controllers/sunat.controller.js
 async listarComprobantes(req, res) {
     try {
-         console.log('📥 Parámetros recibidos:', req.query);
         const { 
             tipo, estado, fecha_desde, fecha_hasta, 
             pagina = 1, limite = 10, search
@@ -46,8 +45,7 @@ async listarComprobantes(req, res) {
         `;
         
         const params = [];
-        console.log('🔍 Consulta IDs:', idsQuery);
-        console.log('📊 Parámetros IDs:', params);
+        
         // Aplicar filtros
         if (tipo) { 
             idsQuery += ' AND cs.tipo = ?'; 
@@ -82,9 +80,9 @@ async listarComprobantes(req, res) {
         params.push(parseInt(limite), offset);
         
         const [idsRows] = await db.execute(idsQuery, params);
-        // Después de obtener los idsRows
         const ids = idsRows.map(row => row.id_comprobante);
-
+        
+        // Si no hay IDs, devolver array vacío
         if (ids.length === 0) {
             return res.json({
                 success: true,
@@ -94,10 +92,8 @@ async listarComprobantes(req, res) {
                 comprobantes: []
             });
         }
-
-        // Crear un NUEVO array de parámetros solo con los IDs
-        const dataParams = [...ids];
-
+        
+        // Ahora obtener los datos completos de esos IDs específicos
         const dataQuery = `
             SELECT 
                 cs.*, 
@@ -123,11 +119,9 @@ async listarComprobantes(req, res) {
             WHERE cs.id_comprobante IN (${ids.map(() => '?').join(',')})
             ORDER BY cs.fecha_envio DESC
         `;
-
-        const [comprobantes] = await db.execute(dataQuery, dataParams); // ✅ Usar dataParams
-          console.log('✅ IDs encontrados:', ids);
-        console.log('🔍 Consulta datos:', dataQuery);
-        console.log('📊 Parámetros datos:', dataParams);
+        
+        const [comprobantes] = await db.execute(dataQuery, ids);
+        
         // Procesar comprobantes
         const comprobantesProcesados = comprobantes.map(comp => ({
             ...comp,
