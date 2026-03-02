@@ -1,8 +1,9 @@
 // backend_dsi6/controllers/sunat.controller.js
-import db from '../config/db.js'; // ✅ AGREGAR ESTA IMPORTACIÓN
+import db from '../config/db.js';
 import sunatService from '../sunat/sunat.service.js';
 
 class SunatController {
+
     async emitirComprobante(req, res) {
         try {
             const { idVenta } = req.params;
@@ -23,161 +24,143 @@ class SunatController {
             });
         }
     }
-// backend_dsi6/controllers/sunat.controller.js
-async listarComprobantes(req, res) {
-    try {
-        const { 
-            tipo, estado, fecha_desde, fecha_hasta, 
-            pagina = 1, limite = 10, search
-        } = req.query;
-        
-        // IMPORTANTE: Hacer dos consultas separadas
-        // 1. Primero obtener los IDs de los comprobantes que cumplen los filtros
-        // 2. Luego contar SOLO esos registros
-        
-        let idsQuery = `
-            SELECT cs.id_comprobante
-            FROM comprobante_sunat cs
-            JOIN venta v ON cs.id_venta = v.id_venta
-            LEFT JOIN cliente c ON v.id_cliente = c.id_cliente
-            LEFT JOIN persona p ON c.id_persona = p.id_persona
-            WHERE 1=1
-        `;
-        
-        const params = [];
-        
-        // Aplicar filtros
-        if (tipo) { 
-            idsQuery += ' AND cs.tipo = ?'; 
-            params.push(tipo); 
-        }
-        if (estado) { 
-            idsQuery += ' AND cs.estado = ?'; 
-            params.push(estado); 
-        }
-        if (fecha_desde) { 
-            idsQuery += ' AND DATE(cs.fecha_envio) >= ?'; 
-            params.push(fecha_desde); 
-        }
-        if (fecha_hasta) { 
-            idsQuery += ' AND DATE(cs.fecha_envio) <= ?'; 
-            params.push(fecha_hasta); 
-        }
-        if (search) {
-            idsQuery += ' AND (c.razon_social LIKE ? OR p.nombre_completo LIKE ? OR cs.serie LIKE ? OR cs.numero_secuencial LIKE ?)';
-            const searchTerm = `%${search}%`;
-            params.push(searchTerm, searchTerm, searchTerm, searchTerm);
-        }
-        
-        // Contar total de IDs filtrados
-        const countQuery = `SELECT COUNT(*) as total FROM (${idsQuery}) as filtered_ids`;
-        const [countResult] = await db.execute(countQuery, params);
-        const total = countResult[0]?.total || 0;
-        
-        // Aplicar paginación a la consulta de IDs
-        const offset = (parseInt(pagina) - 1) * parseInt(limite);
-        idsQuery += ' ORDER BY cs.fecha_envio DESC LIMIT ? OFFSET ?';
-        params.push(parseInt(limite), offset);
-        
-        const [idsRows] = await db.execute(idsQuery, params);
-        const ids = idsRows.map(row => row.id_comprobante);
-        
-        // Si no hay IDs, devolver array vacío
-        if (ids.length === 0) {
-            return res.json({
+
+    async listarComprobantes(req, res) {
+        try {
+            const { 
+                tipo, estado, fecha_desde, fecha_hasta, 
+                pagina = 1, limite = 10, search
+            } = req.query;
+
+            const page = parseInt(pagina);
+            const limit = parseInt(limite);
+            const offset = (page - 1) * limit;
+
+            let baseQuery = `
+                FROM comprobante_sunat cs
+                JOIN venta v ON cs.id_venta = v.id_venta
+                LEFT JOIN cliente c ON v.id_cliente = c.id_cliente
+                LEFT JOIN persona p ON c.id_persona = p.id_persona
+                WHERE 1=1
+            `;
+
+            const filtros = [];
+            const paramsFiltros = [];
+
+            if (tipo) {
+                filtros.push('AND cs.tipo = ?');
+                paramsFiltros.push(tipo);
+            }
+
+            if (estado) {
+                filtros.push('AND cs.estado = ?');
+                paramsFiltros.push(estado);
+            }
+
+            if (fecha_desde) {
+                filtros.push('AND DATE(cs.fecha_envio) >= ?');
+                paramsFiltros.push(fecha_desde);
+            }
+
+            if (fecha_hasta) {
+                filtros.push('AND DATE(cs.fecha_envio) <= ?');
+                paramsFiltros.push(fecha_hasta);
+            }
+
+            if (search) {
+                filtros.push(`AND (
+                    c.razon_social LIKE ? OR 
+                    p.nombre_completo LIKE ? OR 
+                    cs.serie LIKE ? OR 
+                    cs.numero_secuencial LIKE ?
+                )`);
+                const searchTerm = `%${search}%`;
+                paramsFiltros.push(searchTerm, searchTerm, searchTerm, searchTerm);
+            }
+
+            const whereClause = filtros.join(' ');
+
+            // ✅ 1️⃣ COUNT
+            const countQuery = `
+                SELECT COUNT(*) as total
+                ${baseQuery}
+                ${whereClause}
+            `;
+
+            const [countResult] = await db.execute(countQuery, paramsFiltros);
+            const total = countResult[0]?.total || 0;
+
+            // ✅ 2️⃣ DATA con paginación
+            const dataQuery = `
+                SELECT 
+                    cs.*, 
+                    v.total, 
+                    v.fecha,
+                    c.razon_social, 
+                    p.nombre_completo,
+                    p.numero_documento,
+                    p.tipo_documento,
+                    CONCAT(cs.serie, '-', LPAD(cs.numero_secuencial, 8, '0')) as serie_numero
+                ${baseQuery}
+                ${whereClause}
+                ORDER BY cs.fecha_envio DESC
+                LIMIT ? OFFSET ?
+            `;
+
+            const paramsData = [...paramsFiltros, limit, offset];
+
+            const [comprobantes] = await db.execute(dataQuery, paramsData);
+
+            const comprobantesProcesados = comprobantes.map(comp => ({
+                ...comp,
+                igv: comp.total ? Number((comp.total * 0.18).toFixed(2)) : 0
+            }));
+
+            console.log(`📊 Total: ${total}, Devueltos: ${comprobantesProcesados.length}`);
+
+            res.json({
                 success: true,
-                total: 0,
-                pagina: parseInt(pagina),
-                limite: parseInt(limite),
-                comprobantes: []
+                total,
+                pagina: page,
+                limite: limit,
+                comprobantes: comprobantesProcesados
+            });
+
+        } catch (error) {
+            console.error('❌ Error en listarComprobantes:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message
             });
         }
-        
-        // Ahora obtener los datos completos de esos IDs específicos
-        const dataQuery = `
-            SELECT 
-                cs.*, 
-                v.total, 
-                v.fecha,
-                c.razon_social, 
-                p.nombre_completo,
-                p.numero_documento,
-                p.tipo_documento,
-                CASE 
-                    WHEN p.tipo_documento = 'RUC' THEN p.numero_documento
-                    ELSE NULL
-                END as cliente_ruc,
-                CASE 
-                    WHEN p.tipo_documento = 'DNI' THEN p.numero_documento
-                    ELSE NULL
-                END as cliente_dni,
-                CONCAT(cs.serie, '-', LPAD(cs.numero_secuencial, 8, '0')) as serie_numero
-            FROM comprobante_sunat cs
-            JOIN venta v ON cs.id_venta = v.id_venta
-            LEFT JOIN cliente c ON v.id_cliente = c.id_cliente
-            LEFT JOIN persona p ON c.id_persona = p.id_persona
-            WHERE cs.id_comprobante IN (${ids.map(() => '?').join(',')})
-            ORDER BY cs.fecha_envio DESC
-        `;
-        
-        const [comprobantes] = await db.execute(dataQuery, ids);
-        
-        // Procesar comprobantes
-        const comprobantesProcesados = comprobantes.map(comp => ({
-            ...comp,
-            cliente_ruc: comp.cliente_ruc || comp.ruc_cliente || null,
-            cliente_dni: comp.cliente_dni || comp.dni_cliente || null,
-            igv: comp.total ? Number((comp.total * 0.18).toFixed(2)) : 0
-        }));
-        
-        console.log(`📊 Total real: ${total}, Registros devueltos: ${comprobantesProcesados.length}`);
-        
-        res.json({ 
-            success: true, 
-            total, 
-            pagina: parseInt(pagina),
-            limite: parseInt(limite),
-            comprobantes: comprobantesProcesados
-        });
-        
-    } catch (error) {
-        console.error('❌ Error en listarComprobantes:', error);
-        res.status(500).json({ 
-            success: false,
-            error: error.message 
-        });
     }
-}
 
     async obtenerXml(req, res) {
         try {
             const { idComprobante } = req.params;
-            
-            const [comprobantes] = await db.execute(
+
+            const [rows] = await db.execute(
                 'SELECT xml_generado FROM comprobante_sunat WHERE id_comprobante = ?',
                 [idComprobante]
             );
-            
-            if (comprobantes.length === 0 || !comprobantes[0].xml_generado) {
-                return res.status(404).json({ 
+
+            if (rows.length === 0 || !rows[0].xml_generado) {
+                return res.status(404).json({
                     success: false,
-                    error: 'XML no encontrado' 
+                    error: 'XML no encontrado'
                 });
             }
-            
-            const xml = comprobantes[0].xml_generado;
-            
-            // Configurar headers para descarga
+
             res.setHeader('Content-Type', 'application/xml');
             res.setHeader('Content-Disposition', `attachment; filename="comprobante-${idComprobante}.xml"`);
-            
-            res.send(xml);
-            
+
+            res.send(rows[0].xml_generado);
+
         } catch (error) {
             console.error('❌ Error en obtenerXml:', error);
-            res.status(500).json({ 
+            res.status(500).json({
                 success: false,
-                error: error.message 
+                error: error.message
             });
         }
     }
@@ -185,51 +168,48 @@ async listarComprobantes(req, res) {
     async consultarComprobante(req, res) {
         try {
             const { idComprobante } = req.params;
-            
-            const [comprobantes] = await db.execute(
-                `SELECT cs.*, v.total, v.fecha, v.id_cliente,
-                       c.razon_social, p.nombre_completo, p.tipo_documento, p.numero_documento,
-                       CONCAT(cs.serie, '-', LPAD(cs.numero_secuencial, 8, '0')) as serie_numero
-                 FROM comprobante_sunat cs
-                 JOIN venta v ON cs.id_venta = v.id_venta
-                 LEFT JOIN cliente c ON v.id_cliente = c.id_cliente
-                 LEFT JOIN persona p ON c.id_persona = p.id_persona
-                 WHERE cs.id_comprobante = ?`,
-                [idComprobante]
-            );
 
-            if (comprobantes.length === 0) {
-                return res.status(404).json({ 
+            const [rows] = await db.execute(`
+                SELECT cs.*, v.total, v.fecha,
+                       c.razon_social, p.nombre_completo,
+                       CONCAT(cs.serie, '-', LPAD(cs.numero_secuencial, 8, '0')) as serie_numero
+                FROM comprobante_sunat cs
+                JOIN venta v ON cs.id_venta = v.id_venta
+                LEFT JOIN cliente c ON v.id_cliente = c.id_cliente
+                LEFT JOIN persona p ON c.id_persona = p.id_persona
+                WHERE cs.id_comprobante = ?
+            `, [idComprobante]);
+
+            if (rows.length === 0) {
+                return res.status(404).json({
                     success: false,
-                    error: 'Comprobante no encontrado' 
+                    error: 'Comprobante no encontrado'
                 });
             }
 
-            res.json({ 
-                success: true, 
-                comprobante: comprobantes[0] 
+            res.json({
+                success: true,
+                comprobante: rows[0]
             });
+
         } catch (error) {
             console.error('❌ Error en consultarComprobante:', error);
-            res.status(500).json({ 
+            res.status(500).json({
                 success: false,
-                error: error.message 
+                error: error.message
             });
         }
     }
 
-    // ✅ AGREGAR MÉTODO PARA REENVIAR
     async reenviarComprobante(req, res) {
         try {
             const { idComprobante } = req.params;
-            
-            // Aquí deberías implementar la lógica para reenviar a SUNAT
-            // Por ahora devolvemos un mensaje de éxito
+
             res.json({
                 success: true,
                 message: 'Comprobante reenviado exitosamente'
             });
-            
+
         } catch (error) {
             console.error('❌ Error en reenviarComprobante:', error);
             res.status(500).json({
@@ -239,68 +219,49 @@ async listarComprobantes(req, res) {
         }
     }
 
-async obtenerSiguienteNumero(req, res) {
-    const connection = await db.getConnection();
-    try {
-        const { tipo, id_cliente } = req.body;
+    async obtenerSiguienteNumero(req, res) {
+        try {
+            const { tipo } = req.body;
 
-        // 1. Obtener información del cliente
-        const [clienteInfo] = await connection.execute(`
-            SELECT c.tipo_cliente, p.tipo_documento
-            FROM cliente c
-            JOIN persona p ON c.id_persona = p.id_persona
-            WHERE c.id_cliente = ?
-        `, [id_cliente]);
+            let serie = '';
 
-        if (clienteInfo.length === 0) {
-            return res.status(404).json({
+            if (tipo === 'FACTURA') {
+                serie = 'F001';
+            } else if (tipo === 'BOLETA') {
+                serie = 'B001';
+            } else {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Tipo no válido'
+                });
+            }
+
+            const [rows] = await db.execute(
+                `SELECT COALESCE(MAX(numero_secuencial),0)+1 as siguiente
+                 FROM comprobante_sunat
+                 WHERE tipo = ? AND serie = ?`,
+                [tipo, serie]
+            );
+
+            const siguiente = rows[0]?.siguiente || 1;
+
+            res.json({
+                success: true,
+                tipo,
+                serie,
+                numero_secuencial: siguiente,
+                correlativo: siguiente.toString().padStart(8, '0'),
+                serie_numero: `${serie}-${siguiente.toString().padStart(8, '0')}`
+            });
+
+        } catch (error) {
+            console.error('❌ Error en obtenerSiguienteNumero:', error);
+            res.status(500).json({
                 success: false,
-                error: 'Cliente no encontrado'
+                error: error.message
             });
         }
-
-        const cliente = clienteInfo[0];
-        
-        // 2. Determinar la serie
-        let serie = '';
-        if (tipo === 'FACTURA') {
-            serie = 'F001';
-        } else if (tipo === 'BOLETA') {
-            serie = 'B001';
-        } else {
-            return res.status(400).json({
-                success: false,
-                error: 'Tipo de comprobante no válido'
-            });
-        }
-
-        // ✅ EJECUTAR CONSULTA DIRECTAMENTE
-        const [result] = await connection.execute(
-            'SELECT COALESCE(MAX(numero_secuencial), 0) + 1 as siguiente_numero FROM comprobante_sunat WHERE tipo = ? AND serie = ?',
-            [tipo, serie]
-        );
-        
-        const siguienteNumero = result[0]?.siguiente_numero || 1;
-
-        res.json({
-            success: true,
-            tipo,
-            serie,
-            numero_secuencial: siguienteNumero,
-            correlativo: siguienteNumero.toString().padStart(8, '0'),
-            serie_numero: `${serie}-${siguienteNumero.toString().padStart(8, '0')}`
-        });
-
-    } catch (error) {
-        console.error('❌ Error en obtenerSiguienteNumero:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: error.message 
-        });
-    } finally {
-        connection.release();
     }
 }
-}
-// ✅ Exportar la instancia correctamente
+
 export default new SunatController();
