@@ -37,10 +37,18 @@ async listarComprobantes(req, res) {
         
         console.log('📊 Parámetros:', { limitNum, offsetNum });
         
-        // Usar query con placeholders
+        // Usar query con placeholders - INCLUYENDO RUC Y DNI
         const [comprobantes] = await db.query(
-            `SELECT * FROM comprobante_sunat 
-             ORDER BY fecha_envio DESC 
+            `SELECT 
+                cs.*,
+                CONCAT(cs.serie, '-', LPAD(cs.numero_secuencial, 8, '0')) as serie_numero,
+                CASE 
+                    WHEN cs.tipo = 'FACTURA' THEN cs.ruc_cliente
+                    WHEN cs.tipo = 'BOLETA' THEN cs.dni_cliente
+                    ELSE NULL
+                END as documento_cliente
+             FROM comprobante_sunat cs
+             ORDER BY cs.fecha_envio DESC 
              LIMIT ? OFFSET ?`,
             [limitNum, offsetNum]
         );
@@ -57,7 +65,12 @@ async listarComprobantes(req, res) {
             total: totalResult[0].total,
             pagina: parseInt(pagina),
             limite: limitNum,
-            comprobantes: comprobantes
+            comprobantes: comprobantes.map(comp => ({
+                ...comp,
+                // Asegurar que estos campos existan para el frontend
+                cliente_ruc: comp.tipo === 'FACTURA' ? comp.ruc_cliente : null,
+                cliente_dni: comp.tipo === 'BOLETA' ? comp.dni_cliente : null
+            }))
         });
         
     } catch (error) {
