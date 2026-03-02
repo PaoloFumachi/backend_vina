@@ -26,133 +26,58 @@ class SunatController {
 
 
 // backend_dsi6/controllers/sunat.controller.js
+// backend_dsi6/controllers/sunat.controller.js
 async listarComprobantes(req, res) {
     try {
-        const { 
-            tipo, estado, fecha_desde, fecha_hasta, 
-            pagina = 1, limite = 10, search
-        } = req.query;
+        console.log('🔍 Iniciando listarComprobantes - VERSIÓN DE PRUEBA');
         
-        console.log('🔍 Parámetros recibidos:', { tipo, estado, fecha_desde, fecha_hasta, pagina, limite, search });
-        
-        // Convertir a números enteros
+        const { pagina = 1, limite = 10 } = req.query;
         const pageNum = parseInt(pagina) || 1;
         const limitNum = parseInt(limite) || 10;
         const offsetNum = (pageNum - 1) * limitNum;
         
-        // 1. Primero, obtener el total de registros (consulta simple)
-        let countQuery = `
-            SELECT COUNT(*) as total
-            FROM comprobante_sunat cs
-            JOIN venta v ON cs.id_venta = v.id_venta
-            LEFT JOIN cliente c ON v.id_cliente = c.id_cliente
-            LEFT JOIN persona p ON c.id_persona = p.id_persona
-            WHERE 1=1
-        `;
+        console.log(`📊 Paginación: página ${pageNum}, límite ${limitNum}, offset ${offsetNum}`);
         
-        const countParams = [];
-        
-        // Aplicar filtros al COUNT
-        if (tipo) { 
-            countQuery += ' AND cs.tipo = ?'; 
-            countParams.push(tipo); 
-        }
-        if (estado) { 
-            countQuery += ' AND cs.estado = ?'; 
-            countParams.push(estado); 
-        }
-        if (fecha_desde) { 
-            countQuery += ' AND DATE(cs.fecha_envio) >= ?'; 
-            countParams.push(fecha_desde); 
-        }
-        if (fecha_hasta) { 
-            countQuery += ' AND DATE(cs.fecha_envio) <= ?'; 
-            countParams.push(fecha_hasta); 
-        }
-        if (search) {
-            countQuery += ' AND (c.razon_social LIKE ? OR p.nombre_completo LIKE ? OR cs.serie LIKE ? OR cs.numero_secuencial LIKE ?)';
-            const searchTerm = `%${search}%`;
-            countParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
-        }
-        
+        // 1. Consulta COUNT simplificada
+        const countQuery = `SELECT COUNT(*) as total FROM comprobante_sunat`;
         console.log('📝 COUNT Query:', countQuery);
-        console.log('📊 COUNT Params:', countParams);
         
-        const [countResult] = await db.execute(countQuery, countParams);
+        const [countResult] = await db.execute(countQuery);
         const total = countResult[0]?.total || 0;
         console.log('✅ Total registros:', total);
         
-        // 2. Consulta principal con paginación
-        let dataQuery = `
+        // 2. Consulta DATA simplificada
+        const dataQuery = `
             SELECT 
                 cs.*, 
-                v.total, 
-                v.fecha,
-                c.razon_social, 
-                p.nombre_completo,
-                p.numero_documento,
-                p.tipo_documento,
-                CASE 
-                    WHEN p.tipo_documento = 'RUC' THEN p.numero_documento
-                    ELSE NULL
-                END as cliente_ruc,
-                CASE 
-                    WHEN p.tipo_documento = 'DNI' THEN p.numero_documento
-                    ELSE NULL
-                END as cliente_dni,
                 CONCAT(cs.serie, '-', LPAD(cs.numero_secuencial, 8, '0')) as serie_numero
             FROM comprobante_sunat cs
-            JOIN venta v ON cs.id_venta = v.id_venta
-            LEFT JOIN cliente c ON v.id_cliente = c.id_cliente
-            LEFT JOIN persona p ON c.id_persona = p.id_persona
-            WHERE 1=1
+            ORDER BY cs.fecha_envio DESC
+            LIMIT ? OFFSET ?
         `;
         
-        const dataParams = [];
-        
-        // Aplicar los mismos filtros
-        if (tipo) { 
-            dataQuery += ' AND cs.tipo = ?'; 
-            dataParams.push(tipo); 
-        }
-        if (estado) { 
-            dataQuery += ' AND cs.estado = ?'; 
-            dataParams.push(estado); 
-        }
-        if (fecha_desde) { 
-            dataQuery += ' AND DATE(cs.fecha_envio) >= ?'; 
-            dataParams.push(fecha_desde); 
-        }
-        if (fecha_hasta) { 
-            dataQuery += ' AND DATE(cs.fecha_envio) <= ?'; 
-            dataParams.push(fecha_hasta); 
-        }
-        if (search) {
-            dataQuery += ' AND (c.razon_social LIKE ? OR p.nombre_completo LIKE ? OR cs.serie LIKE ? OR cs.numero_secuencial LIKE ?)';
-            const searchTerm = `%${search}%`;
-            dataParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
-        }
-        
-        // Agregar ORDER BY, LIMIT y OFFSET
-        dataQuery += ' ORDER BY cs.fecha_envio DESC LIMIT ? OFFSET ?';
-        dataParams.push(limitNum, offsetNum);
-        
         console.log('📝 DATA Query:', dataQuery);
-        console.log('📊 DATA Params:', dataParams);
-        console.log('🔢 Número placeholders:', (dataQuery.match(/\?/g) || []).length);
-        console.log('🔢 Número parámetros:', dataParams.length);
+        console.log('📊 Parámetros:', [limitNum, offsetNum]);
         
-        const [comprobantes] = await db.execute(dataQuery, dataParams);
+        const [comprobantes] = await db.execute(dataQuery, [limitNum, offsetNum]);
         
-        // Procesar resultados
+        console.log(`✅ Registros encontrados: ${comprobantes.length}`);
+        
+        // Procesar resultados mínimos
         const comprobantesProcesados = comprobantes.map(comp => ({
-            ...comp,
-            cliente_ruc: comp.cliente_ruc || comp.ruc_cliente || null,
-            cliente_dni: comp.cliente_dni || comp.dni_cliente || null,
-            igv: comp.total ? Number((comp.total * 0.18).toFixed(2)) : 0
+            id_comprobante: comp.id_comprobante,
+            id_venta: comp.id_venta,
+            tipo: comp.tipo,
+            serie: comp.serie,
+            numero_secuencial: comp.numero_secuencial,
+            estado: comp.estado,
+            total: comp.total,
+            cliente_nombre: comp.cliente_nombre || 'Sin cliente',
+            fecha_envio: comp.fecha_envio,
+            serie_numero: comp.serie_numero,
+            cliente_ruc: comp.ruc_cliente,
+            cliente_dni: comp.dni_cliente
         }));
-        
-        console.log(`📊 Registros devueltos: ${comprobantesProcesados.length}`);
         
         res.json({ 
             success: true, 
@@ -166,6 +91,8 @@ async listarComprobantes(req, res) {
         console.error('❌ Error en listarComprobantes:', error);
         console.error('📝 SQL:', error.sql);
         console.error('📊 Parámetros:', error.sqlMessage);
+        console.error('🔧 Stack:', error.stack);
+        
         res.status(500).json({ 
             success: false,
             error: error.message,
