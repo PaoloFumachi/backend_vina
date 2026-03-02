@@ -29,26 +29,45 @@ class SunatController {
 // backend_dsi6/controllers/sunat.controller.js
 async listarComprobantes(req, res) {
     try {
+        console.log('🔍 Usando db.query() en lugar de db.execute()');
+        
         const { pagina = 1, limite = 10 } = req.query;
-        const limitNum = Number(limite);
-        const offsetNum = Number((pagina - 1) * limite);
+        const limitNum = parseInt(limite);
+        const offsetNum = (parseInt(pagina) - 1) * limitNum;
         
-        const dataQuery = `
-            SELECT * FROM comprobante_sunat 
-            ORDER BY fecha_envio DESC 
-            LIMIT ? OFFSET ?
-        `;
+        console.log('📊 Parámetros:', { limitNum, offsetNum });
         
-        console.log('Ejecutando:', dataQuery, 'con', [limitNum, offsetNum]);
+        // Usar query con placeholders
+        const [comprobantes] = await db.query(
+            `SELECT * FROM comprobante_sunat 
+             ORDER BY fecha_envio DESC 
+             LIMIT ? OFFSET ?`,
+            [limitNum, offsetNum]
+        );
         
-        // Asegurar que sean números
-        const [rows] = await db.execute(dataQuery, [limitNum, offsetNum]);
+        // También obtener el total
+        const [totalResult] = await db.query(
+            'SELECT COUNT(*) as total FROM comprobante_sunat'
+        );
         
-        res.json({ success: true, data: rows });
+        console.log(`✅ Registros encontrados: ${comprobantes.length}`);
+        
+        res.json({
+            success: true,
+            total: totalResult[0].total,
+            pagina: parseInt(pagina),
+            limite: limitNum,
+            comprobantes: comprobantes
+        });
         
     } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ error: error.message });
+        console.error('❌ Error en listarComprobantes:', error);
+        console.error('📝 SQL:', error.sql);
+        console.error('📊 Parámetros:', error.sqlMessage);
+        res.status(500).json({ 
+            success: false,
+            error: error.message 
+        });
     }
 }
     async obtenerXml(req, res) {
