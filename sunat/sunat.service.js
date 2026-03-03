@@ -5,6 +5,7 @@ import db from '../config/db.js';
 class SunatService {
    // backend_dsi6/sunat/sunat.service.js - MODIFICAR CONSTRUCTOR
 constructor() {
+       console.log('🔍 SUNAT_PHP_URL desde env:', process.env.SUNAT_PHP_URL);
     // Usar variable de entorno o fallback local
     this.phpServiceUrl = process.env.SUNAT_PHP_URL 
         ? `${process.env.SUNAT_PHP_URL}/src/endpoints/emitir_fake.php`

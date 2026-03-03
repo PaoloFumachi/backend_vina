@@ -4,9 +4,6 @@ import db from '../config/db.js';
 // ============================================
 // GET VENTAS - Listar todas las ventas
 // ============================================
-// src/controllers/venta.controller.js - CORREGIR getVentas
-
-// src/controllers/venta.controller.js - MEJORAR getVentas
 
 export const getVentas = async (req, res) => {
     try {
@@ -47,19 +44,21 @@ export const getVentas = async (req, res) => {
             ORDER BY v.fecha_creacion DESC
         `);
         
-        // Para cada venta, buscar su comprobante en comprobante_sunat
+        // Para cada venta, buscar SIEMPRE en comprobante_sunat
         const ventasConComprobante = await Promise.all(ventas.map(async (venta) => {
             const [comprobante] = await db.execute(`
-                SELECT serie, numero_secuencial
+                SELECT id_comprobante, serie, numero_secuencial
                 FROM comprobante_sunat
                 WHERE id_venta = ?
                 LIMIT 1
             `, [venta.id_venta]);
             
             if (comprobante.length > 0) {
+                venta.comprobante_emitido = 1; // ✅ FORZAR a 1 si existe
                 venta.serie_comprobante = comprobante[0].serie;
                 venta.numero_correlativo = comprobante[0].numero_secuencial;
             } else {
+                venta.comprobante_emitido = venta.comprobante_emitido || 0;
                 venta.serie_comprobante = null;
                 venta.numero_correlativo = null;
             }
