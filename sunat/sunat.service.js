@@ -171,22 +171,33 @@ constructor() {
         return datos;
     }
 
-    async enviarAPHP(datos) {
-        try {
-            const response = await axios.post(
-                this.phpServiceUrl,
-                datos,
-                {
-                    headers: { 'Content-Type': 'application/json' },
-                    timeout: 30000
-                }
-            );
-            return response.data;
-        } catch (error) {
-            console.error('❌ Error comunicándose con PHP:', error.message);
-            throw error;
+ // backend_dsi6/sunat/sunat.service.js - EN LA FUNCIÓN enviarAPHP
+
+async enviarAPHP(datos) {
+    try {
+        console.log('📤 Enviando a PHP:', JSON.stringify(datos, null, 2));
+        
+        const response = await axios.post(
+            this.phpServiceUrl,
+            datos,
+            {
+                headers: { 'Content-Type': 'application/json' },
+                timeout: 30000
+            }
+        );
+        
+        console.log('📥 Respuesta PHP (status):', response.status);
+        console.log('📥 Respuesta PHP (data):', JSON.stringify(response.data, null, 2));
+        
+        return response.data;
+    } catch (error) {
+        console.error('❌ Error comunicándose con PHP:', error.message);
+        if (error.response) {
+            console.error('📥 Respuesta de error PHP:', error.response.data);
         }
+        throw error;
     }
+}
 
   // backend_dsi6/sunat/sunat.service.js
 async guardarComprobanteBD(connection, idVenta, venta, resultadoPHP) {
