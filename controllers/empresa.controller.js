@@ -1,6 +1,7 @@
 // src/controllers/empresa.controller.js
 import db from '../config/db.js';
-
+import fs from 'fs';  // ✅ AGREGAR ESTA LÍNEA
+import path from 'path'; // ✅ También puede ser útil
 // Obtener configuración activa
 export const getEmpresaConfig = async (req, res) => {
     try {
@@ -75,10 +76,12 @@ export const uploadLogo = async (req, res) => {
         console.log('   - filename:', req.file.filename);
         console.log('   - path:', req.file.path);
         console.log('   - size:', req.file.size);
-        console.log('   - exists?', fs.existsSync(req.file.path));
         
-        // Verificar que se puede leer
-        if (fs.existsSync(req.file.path)) {
+        // Verificar que el archivo existe
+        const fileExists = fs.existsSync(req.file.path);
+        console.log('   - existe?', fileExists);
+        
+        if (fileExists) {
             const stats = fs.statSync(req.file.path);
             console.log('   - stats:', stats);
         }
@@ -97,6 +100,8 @@ export const uploadLogo = async (req, res) => {
             [rutaRelativa]
         );
 
+        console.log('✅ Logo guardado en BD con ruta:', rutaRelativa);
+
         res.json({
             success: true,
             message: 'Logo subido correctamente',
@@ -104,6 +109,9 @@ export const uploadLogo = async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Error al subir logo:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ 
+            success: false,
+            error: error.message 
+        });
     }
 };
