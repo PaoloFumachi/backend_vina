@@ -31,6 +31,23 @@ app.use(paths.urls.assets, express.static(paths.frontend.assets));
 console.log('📁 Sirviendo uploads desde:', paths.uploads.logos);
 app.use(paths.urls.uploads, express.static(paths.uploads.logos));
 
+
+// Temporal para debug - después de servir uploads
+app.get('/debug-uploads', (req, res) => {
+    const uploadsPath = paths.uploads.logos;
+    const files = fs.existsSync(uploadsPath) ? fs.readdirSync(uploadsPath) : [];
+    
+    res.json({
+        uploadsPath,
+        exists: fs.existsSync(uploadsPath),
+        files,
+        projectRoot: paths.projectRoot,
+        cwd: process.cwd(),
+        __dirname
+    });
+});
+
+
 // Rutas
 app.use("/api", indexRoutes);
 

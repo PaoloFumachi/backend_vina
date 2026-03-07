@@ -20,14 +20,15 @@ const router = express.Router();
 // ============================================
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        // ✅ Usar la carpeta de uploads/logos
+        // ✅ Usar la ruta configurada en paths
         const targetPath = paths.uploads.logos;
         
-        console.log('📁 Guardando logos en:', targetPath);
+        console.log('📁 Multer - Guardando en:', targetPath);
+        console.log('📁 Multer - La carpeta existe?', fs.existsSync(targetPath) ? '✅ SÍ' : '❌ NO');
         
         // Crear la carpeta si no existe
         if (!fs.existsSync(targetPath)) {
-            console.log('📁 Creando carpeta:', targetPath);
+            console.log('📁 Creando carpeta en Multer:', targetPath);
             fs.mkdirSync(targetPath, { recursive: true });
         }
         
