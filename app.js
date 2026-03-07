@@ -23,9 +23,13 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Servir archivos estáticos
+// Servir archivos estáticos del frontend (build)
 console.log('📁 Sirviendo archivos estáticos desde:', paths.frontend.assets);
 app.use(paths.urls.assets, express.static(paths.frontend.assets));
+
+// ✅ NUEVO: Servir archivos subidos (logos) desde uploads
+console.log('📁 Sirviendo uploads desde:', paths.uploads.logos);
+app.use(paths.urls.uploads, express.static(paths.uploads.logos));
 
 // Rutas
 app.use("/api", indexRoutes);

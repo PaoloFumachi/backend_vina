@@ -1,5 +1,5 @@
 // ============================================
-// RUTAS DE EMPRESA - VERSIÓN ESCALABLE
+// RUTAS DE EMPRESA - CON UPLOADS PERSISTENTES
 // ============================================
 import express from 'express';
 import multer from 'multer';
@@ -11,17 +11,17 @@ import {
     uploadLogo 
 } from '../controllers/empresa.controller.js';
 import { verifyToken, requireRole } from '../middleware/auth.js';
-import paths from '../config/paths.js'; // ✅ Importar configuración de rutas
+import paths from '../config/paths.js';
 
 const router = express.Router();
 
 // ============================================
-// 🎯 CONFIGURACIÓN DE MULTER - USANDO RUTAS CONFIGURADAS
+// 🎯 CONFIGURACIÓN DE MULTER - USANDO UPLOADS
 // ============================================
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        // ✅ Usar la ruta configurada
-        const targetPath = paths.frontend.empresa;
+        // ✅ Usar la carpeta de uploads/logos
+        const targetPath = paths.uploads.logos;
         
         console.log('📁 Guardando logos en:', targetPath);
         

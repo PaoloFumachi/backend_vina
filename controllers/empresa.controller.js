@@ -64,7 +64,7 @@ export const updateEmpresaConfig = async (req, res) => {
     }
 };
 
-// Subir logo
+// Subir logo - VERSIÓN CORREGIDA
 export const uploadLogo = async (req, res) => {
     try {
         if (!req.file) {
@@ -74,8 +74,8 @@ export const uploadLogo = async (req, res) => {
         const { tipo } = req.body; // 'login' o 'navbar'
         const filename = req.file.filename;
         
-        // Ruta relativa para guardar en BD
-        const rutaRelativa = `assets/empresa/${filename}`;
+        // ✅ Ruta relativa para servir desde uploads
+        const rutaRelativa = `uploads/logos/${filename}`;
 
         // Actualizar la configuración con la nueva ruta
         const campo = tipo === 'login' ? 'logo_login' : 'logo_navbar';

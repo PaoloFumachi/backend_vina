@@ -8,15 +8,19 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Determinar si estamos en producción
 const isProduction = process.env.NODE_ENV === 'production';
 
 // Raíz del proyecto (subimos 2 niveles desde /config hasta la raíz)
 const projectRoot = path.join(__dirname, '../..');
 
-// Definir rutas según el entorno
 const paths = {
-    // Rutas del frontend
+    // Uploads (persistentes)
+    uploads: {
+        root: path.join(projectRoot, 'backend_dsi6', 'uploads'),
+        logos: path.join(projectRoot, 'backend_dsi6', 'uploads', 'logos')
+    },
+    
+    // Rutas del frontend (solo para referencia)
     frontend: {
         root: path.join(projectRoot, 'frontend_dsi6'),
         assets: isProduction 
@@ -30,10 +34,10 @@ const paths = {
     // URLs públicas
     urls: {
         assets: '/assets',
-        empresa: '/assets/empresa'
+        empresa: '/assets/empresa',
+        uploads: '/uploads'  // Nueva URL para servir archivos subidos
     },
     
-    // Configuración
     isProduction,
     projectRoot
 };
@@ -41,7 +45,6 @@ const paths = {
 // Logs para depuración
 console.log('📁 Configuración de rutas:');
 console.log('   🏭 Modo:', isProduction ? 'PRODUCCIÓN' : 'DESARROLLO');
-console.log('   📂 Assets:', paths.frontend.assets);
-console.log('   📂 Empresa:', paths.frontend.empresa);
+console.log('   📂 Uploads:', paths.uploads.logos);
 
 export default paths;
