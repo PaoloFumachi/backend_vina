@@ -64,17 +64,29 @@ export const updateEmpresaConfig = async (req, res) => {
     }
 };
 
-// Subir logo - VERSIÓN CORREGIDA
+// En uploadLogo - DESPUÉS de guardar
 export const uploadLogo = async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No se subió ningún archivo' });
         }
 
-        const { tipo } = req.body; // 'login' o 'navbar'
+        console.log('✅ ARCHIVO GUARDADO:');
+        console.log('   - filename:', req.file.filename);
+        console.log('   - path:', req.file.path);
+        console.log('   - size:', req.file.size);
+        console.log('   - exists?', fs.existsSync(req.file.path));
+        
+        // Verificar que se puede leer
+        if (fs.existsSync(req.file.path)) {
+            const stats = fs.statSync(req.file.path);
+            console.log('   - stats:', stats);
+        }
+
+        const { tipo } = req.body;
         const filename = req.file.filename;
         
-        // ✅ Ruta relativa para servir desde uploads
+        // Ruta relativa para guardar en BD
         const rutaRelativa = `uploads/logos/${filename}`;
 
         // Actualizar la configuración con la nueva ruta

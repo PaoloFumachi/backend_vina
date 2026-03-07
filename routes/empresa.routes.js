@@ -18,18 +18,20 @@ const router = express.Router();
 // ============================================
 // 🎯 CONFIGURACIÓN DE MULTER - USANDO UPLOADS
 // ============================================
+// En empresa.routes.js - MODIFICAR EL storage
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        // ✅ Usar la ruta configurada en paths
         const targetPath = paths.uploads.logos;
         
-        console.log('📁 Multer - Guardando en:', targetPath);
-        console.log('📁 Multer - La carpeta existe?', fs.existsSync(targetPath) ? '✅ SÍ' : '❌ NO');
+        console.log('🔍 MULTER DEBUG:');
+        console.log('   - targetPath:', targetPath);
+        console.log('   - existe?', fs.existsSync(targetPath));
+        console.log('   - permisos:', fs.existsSync(targetPath) ? '✅' : '❌');
         
-        // Crear la carpeta si no existe
-        if (!fs.existsSync(targetPath)) {
-            console.log('📁 Creando carpeta en Multer:', targetPath);
-            fs.mkdirSync(targetPath, { recursive: true });
+        // Listar archivos existentes antes de guardar
+        if (fs.existsSync(targetPath)) {
+            const files = fs.readdirSync(targetPath);
+            console.log('   - archivos antes:', files);
         }
         
         cb(null, targetPath);
@@ -39,7 +41,7 @@ const storage = multer.diskStorage({
         const tipo = req.body.tipo || 'logo';
         const ext = path.extname(file.originalname);
         const filename = `logo-${tipo}-${Date.now()}${ext}`;
-        console.log('📄 Nombre de archivo:', filename);
+        console.log('📄 Nombre de archivo generado:', filename);
         cb(null, filename);
     }
 });
