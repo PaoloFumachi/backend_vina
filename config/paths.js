@@ -11,35 +11,31 @@ const __dirname = path.dirname(__filename);
 
 const isProduction = process.env.NODE_ENV === 'production';
 
-// ✅ En Railway, la raíz del proyecto es /app
-// ✅ El backend está en /app (porque se clonó backend_vina)
-const projectRoot = path.join(__dirname, '..'); // Subimos un nivel desde /config hasta la raíz del backend
+// En Railway, el directorio de trabajo es /app
+// Pero el repositorio se clona en /app
+const projectRoot = process.cwd(); // Usar el directorio de trabajo actual
 
-console.log('🔍 Debug - __dirname:', __dirname);
-console.log('🔍 Debug - projectRoot:', projectRoot);
+console.log('🔍 paths.js - Configuración:');
+console.log('   - isProduction:', isProduction);
+console.log('   - projectRoot (cwd):', projectRoot);
+console.log('   - __dirname:', __dirname);
 
 const paths = {
-    // Uploads (persistentes) - EN RAILWAY SERÁ /app/uploads/logos
+    // Uploads - En Railway: /app/uploads
     uploads: {
         root: path.join(projectRoot, 'uploads'),
         logos: path.join(projectRoot, 'uploads', 'logos')
     },
     
-    // Rutas del frontend (solo para referencia)
+    // Rutas del frontend
     frontend: {
         root: path.join(projectRoot, 'frontend_dsi6'),
-        assets: isProduction 
-            ? path.join(projectRoot, 'frontend_dsi6', 'dist', 'assets')
-            : path.join(projectRoot, 'frontend_dsi6', 'src', 'assets'),
-        empresa: isProduction
-            ? path.join(projectRoot, 'frontend_dsi6', 'dist', 'assets', 'empresa')
-            : path.join(projectRoot, 'frontend_dsi6', 'src', 'assets', 'empresa')
+        assets: path.join(projectRoot, 'frontend_dsi6', 'dist', 'frontend-vina')
     },
     
     // URLs públicas
     urls: {
         assets: '/assets',
-        empresa: '/assets/empresa',
         uploads: '/uploads'
     },
     
@@ -54,10 +50,9 @@ if (!fs.existsSync(paths.uploads.logos)) {
 }
 
 // Logs para depuración
-console.log('📁 Configuración de rutas:');
+console.log('📁 Configuración final de rutas:');
 console.log('   🏭 Modo:', isProduction ? 'PRODUCCIÓN' : 'DESARROLLO');
-console.log('   📂 Uploads root:', paths.uploads.root);
 console.log('   📂 Uploads logos:', paths.uploads.logos);
-console.log('   📂 Directorio existe?', fs.existsSync(paths.uploads.logos) ? '✅ SÍ' : '❌ NO');
+console.log('   📂 Existe?', fs.existsSync(paths.uploads.logos) ? '✅ SÍ' : '❌ NO');
 
 export default paths;
