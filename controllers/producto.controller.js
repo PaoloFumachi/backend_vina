@@ -12,6 +12,7 @@ export const getProductos = async (req, res) => {
       descripcion: producto.descripcion,
       precio: producto.precio,
       stock: producto.stock,
+       stock_minimo: producto.stock_minimo, // 👈 NUEVO
       categoriaId: producto.id_categoria ,  // ← Cambiado de categoriaId a categoria_id
       marcaId: producto.id_marca,          // ← Cambiado de marcaId a marca_id  
       paisOrigenId: producto.id_pais_origen // ← Cambiado de paisOrigenId a pais_origen_id
@@ -39,6 +40,7 @@ export const getProductoById = async (req, res) => {
       descripcion: producto.descripcion,
       precio: producto.precio,
       stock: producto.stock,
+      stock_minimo: producto.stock_minimo, // 👈 NUEVO
       categoriaId: producto.id_categoria ,
       marcaId: producto.id_marca,
       paisOrigenId: producto.id_pais_origen
@@ -62,6 +64,7 @@ export const createProducto = async (req, res) => {
       categoriaId, 
       marcaId, 
       paisOrigenId,
+      stockMinimo, // 👈 NUEVO
       presentacion,
       volumen 
     } = req.body;
@@ -70,9 +73,9 @@ export const createProducto = async (req, res) => {
 
     const [result] = await db.query(
       `INSERT INTO producto 
-       (nombre, descripcion, precio, stock, id_categoria, id_marca, id_pais_origen, presentacion, volumen) 
+       (nombre, descripcion, precio, stock,stock_minimo, id_categoria, id_marca, id_pais_origen, presentacion, volumen) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [nombre, descripcion, precio, stock, categoriaId, marcaId, paisOrigenId, presentacion, volumen]
+      [nombre, descripcion, precio, stock,stockMinimo || 0, categoriaId, marcaId, paisOrigenId, presentacion, volumen]
     );
     
     res.status(201).json({ 
@@ -89,11 +92,11 @@ export const createProducto = async (req, res) => {
 export const updateProducto = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, descripcion, precio, stock, categoriaId, marcaId,  paisOrigenId } = req.body;
+    const { nombre, descripcion, precio, stock, stockMinimo, categoriaId, marcaId,  paisOrigenId } = req.body;
 
     const [result] = await db.query(
-      "UPDATE producto SET nombre = ?, descripcion = ?, precio = ?, stock = ?,id_categoria= ?, id_marca= ?, id_proveedor  = ?, id_pais_origen = ? WHERE id_producto = ?",
-      [nombre, descripcion, precio, stock, categoriaId, marcaId, paisOrigenId, id]
+      "UPDATE producto SET nombre = ?, descripcion = ?, precio = ?, stock = ?, stock_minimo = ?,id_categoria= ?, id_marca= ?, id_proveedor  = ?, id_pais_origen = ? WHERE id_producto = ?",
+      [nombre, descripcion, precio, stock,stockMinimo || 0, categoriaId, marcaId, paisOrigenId, id]
     );
 
     if (result.affectedRows === 0)
