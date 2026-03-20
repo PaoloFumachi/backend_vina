@@ -519,6 +519,8 @@ export const updateEstadoVentaRepartidor = async (req, res) => {
     }
 };
 // En repartidor-venta.controller.js - ACTUALIZAR cancelarEntregaRepartidor
+// src/controllers/repartidor-venta.controller.js
+
 export const cancelarEntregaRepartidor = async (req, res) => {
     const connection = await db.getConnection();
     try {
@@ -549,9 +551,9 @@ export const cancelarEntregaRepartidor = async (req, res) => {
             return res.status(400).json({ error: 'El motivo de cancelación es requerido' });
         }
 
-        // Verificar que la venta está asignada a este repartidor
+        // Verificar que la venta está asignada a este repartidor y obtener información de ruta
         const [ventas] = await connection.execute(`
-            SELECT id_venta, id_estado_venta
+            SELECT id_venta, id_estado_venta, fecha_inicio_ruta, fecha_fin_ruta
             FROM venta 
             WHERE id_venta = ? AND id_repartidor = ?
         `, [id, repartidorId]);
@@ -561,6 +563,27 @@ export const cancelarEntregaRepartidor = async (req, res) => {
             return res.status(404).json({ 
                 error: 'Venta no encontrada o no asignada a este repartidor' 
             });
+        }
+
+        const venta = ventas[0];
+
+        // ✅ NUEVO: Determinar si la ruta fue iniciada
+        const rutaIniciada = !!venta.fecha_inicio_ruta;
+        
+        // ✅ NUEVO: Si la ruta fue iniciada pero no finalizada, registrar fecha_fin_ruta como NOW()
+        // Esto permitirá calcular el tiempo transcurrido hasta la cancelación
+        let fechaFinRuta = null;
+        if (rutaIniciada && !venta.fecha_fin_ruta) {
+            fechaFinRuta = new Date();
+            console.log(`📅 Registrando fecha de fin de ruta para cancelación: ${fechaFinRuta}`);
+            
+            // Actualizar la venta con fecha_fin_ruta
+            await connection.execute(`
+                UPDATE venta 
+                SET fecha_fin_ruta = NOW(),
+                    tracking_activo = 0
+                WHERE id_venta = ?
+            `, [id]);
         }
 
         // Importar la función utilitaria
@@ -576,13 +599,17 @@ export const cancelarEntregaRepartidor = async (req, res) => {
 
         await connection.commit();
 
-        console.log(`✅ Venta ${id} cancelada por repartidor ${repartidorId} con restauración de stock`);
+        console.log(`✅ Venta ${id} cancelada por repartidor ${repartidorId}`);
+        console.log(`   - Ruta iniciada: ${rutaIniciada ? 'SÍ' : 'NO'}`);
+        console.log(`   - Fecha fin ruta registrada: ${fechaFinRuta || 'No aplica'}`);
         
         res.json({ 
             success: true,
             message: 'Venta cancelada y stock restaurado correctamente',
             id_venta: parseInt(id),
-            lotes_restaurados: resultado.lotes_restaurados
+            lotes_restaurados: resultado.lotes_restaurados,
+            ruta_iniciada: rutaIniciada,
+            fecha_fin_ruta: fechaFinRuta
         });
 
     } catch (error) {
