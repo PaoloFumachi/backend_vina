@@ -14,12 +14,13 @@ const obtenerModulosPorRol = (idRol) => {
       'usuarios', 'personas', 'clientes', 'productos', 
       'ventas_nueva', 'ventas', 'ventas_asignacion_rutas',
       'rutas', 'inventario', 'reportes','repartidores',
-      'inventario_movimiento', 'inventario_reportes','lotes', 'proveedores', 'pedido_proveedor', 'categorias', 'marcas','sunat','empresa','insumos'
+      'inventario_movimiento', 'inventario_reportes','lotes', 'proveedores', 'pedido_proveedor', 'categorias', 'marcas','sunat','empresa','insumos',
+      'recargas'
     ],
     // Vendedor (id: 2)
     2: [
       //
-      'clientes','productos',  'ventas_nueva', 'ventas', 'ventas_asignacion_rutas','sunat'
+      'clientes','productos',  'ventas_nueva', 'ventas', 'ventas_asignacion_rutas','sunat','recargas'
     ],
     // Repartidor (id: 3)
     3: [

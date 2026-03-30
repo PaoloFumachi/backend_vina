@@ -21,6 +21,9 @@ import insumoRoutes from "./insumo.routes.js";
 import sunatRoutes from "./sunat.routes.js"; // ✅ NUEVA IMPORTACIÓN
 import entregaDineroRoutes from "./entrega-dinero.routes.js"; // ✅ NUEVA RUTA
 import empresaRoutes from "./empresa.routes.js";
+import produccionRoutes from "./produccion.routes.js"; // ✅ AGREGAR
+import recargaRoutes from './recarga.routes.js'; // ✅ AGREGAR
+import yapeRoutes from './yape.routes.js'; // ✅ AGREGAR
 const router = express.Router();
 
 // Rutas públicas (sin autenticación)
@@ -50,4 +53,7 @@ router.use("/insumos", insumoRoutes); // ✅ NUEVA RUTA AÑADIDA
 router.use("/sunat", sunatRoutes); // ✅ NUEVA RUTA SUNAT
 router.use("/entregas-dinero", entregaDineroRoutes); // ✅ NUEVA RUTA AGREGADA
 router.use("/empresa", empresaRoutes);
+router.use("/produccion", produccionRoutes); // ✅ AGREGAR
+router.use("/recargas", recargaRoutes); // ✅ AGREGAR
+router.use("/yape", yapeRoutes); // ✅ AGREGAR
 export default router;
